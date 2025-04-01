@@ -46,7 +46,7 @@ function App() {
         <Route
           path="/"
           element={
-            isAuthenticated ? <ChatApp handleLogout={handleLogout} /> : 
+            isAuthenticated ? <ChatApp handleLogout={handleLogout} token={token} /> : 
             <Auth 
             handleLogin={handleLogin} 
             />

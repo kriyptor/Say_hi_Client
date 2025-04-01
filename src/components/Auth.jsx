@@ -66,7 +66,7 @@ const AuthComponent = ({ handleLogin }) => {
 
       //console.log(response.data)
 
-      handleLogin(response.data.userId); // Update authentication state in parent
+      handleLogin(response.data.token); // Update authentication state in parent
       setSuccess('Sign in successful!');
       //navigate('/home'); // Programmatically navigate to home page
     } catch (err) {

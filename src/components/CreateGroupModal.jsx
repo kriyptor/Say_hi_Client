@@ -38,7 +38,7 @@ const CreateGroupModal = ({ show, onHide, availableUsers, onCreateGroup }) => {
                 label={user.name}
                 onChange={e => {
                   if (e.target.checked) {
-                    setSelectedMembers([...selectedMembers, user]);
+                    setSelectedMembers([...selectedMembers, user.id]);
                   } else {
                     setSelectedMembers(selectedMembers.filter(m => m.id !== user.id));
                   }

@@ -1,46 +1,101 @@
-import React, { useState } from 'react';
-import { Container, Row, Col } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { Container, Row, Col, Button } from 'react-bootstrap';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import ChatArea from './ChatArea';
 import CreateGroupModal from './CreateGroupModal';
 
-const ChatApp = ({ handleLogout }) => {
+const ChatApp = ({ handleLogout, token }) => {
+  const URL = 'http://localhost:4000';
+
   const [currentTab, setCurrentTab] = useState('private');
   const [selectedChat, setSelectedChat] = useState(null);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  //private chats
+  const [privateChats, setPrivateChats] = useState([]);
+  const [privateMessages, setPrivateMessages] = useState([]);
+  const [privateUserName, setPrivateUserName] = useState(``);
+  const [groupName, setGroupName] = useState(``)
+  const [groupChats, setGroupChats] = useState([]);
+  const [groupMessages, setGroupMessages] = useState([]);
 
-  //TODO:Add side effect after mounting the component to call the private & group chat data here
+  useEffect(() => {
+    const fetchChatsDetails = async () => {
+      try {
+        const privateChat = await axios.get(`${URL}/chat/get-private-chat`, {
+          headers: { "Authorization" : token }
+        });
+        console.log('Private chats details:', privateChat.data.data)
+        setPrivateChats(privateChat.data.data);
 
-  const [privateChats, setPrivateChats] = useState([
-    { id: '1', name: 'Alice', messages: [{ sender: 'Alice', text: 'Hi!' }, { sender: 'You', text: 'Hello!' }] },
-    { id: '2', name: 'Bob', messages: [{ sender: 'Bob', text: 'Hey there!' }] },
-  ]);
+        const groupChat = await axios.get(`${URL}/chat/get-all-group`, {
+          headers: { "Authorization" : token }
+        });
+        setGroupChats(groupChat.data.data);
 
-  const [groupChats, setGroupChats] = useState([
-    { id: 'g1', name: 'Group A', messages: [{ sender: 'Charlie', text: 'Welcome to Group A!' }] },
-  ]);
+        const userList = await axios.get(`${URL}/user/get-all-users`, {
+          headers: { "Authorization" : token }
+        });
+        setAvailableUsers(userList.data.data);
 
-  const availableUsers = [
-    { id: '1', name: 'Alice' },
-    { id: '2', name: 'Bob' },
-    { id: '3', name: 'Charlie' },
-  ];
+      } catch (error) {
+        console.error('Error fetching private chats:', error);
+      }
+    };
+
+    fetchChatsDetails();
+  }, []);
+
+
+  const getPrivateMessages = async (receiverUserName, receiverUserId) => {
+    try {
+      
+      const response = await axios.get(`${URL}/chat/get-messages`, {
+        params: { receiverUser : receiverUserId },
+        headers: { "Authorization" : token }
+      });
+        setPrivateUserName(receiverUserName)
+        setPrivateMessages(response.data.chatData);
+    } catch (error) {
+      console.error('Error fetching private chats:', error);
+    }
+  };
+
+
+  const getGroupMessages = async (groupName, groupId) => {
+    try {
+      const response = await axios.get(`${URL}/chat/get-message-group`, {
+        params: { groupId },
+        headers: { "Authorization" : token }
+      });
+      setGroupName(groupName);
+      setGroupMessages(response.data.data);
+    } catch (error) {
+      console.error('Error fetching private chats:', error);
+    }
+  };
+
 
   const filteredPrivateChats = privateChats.filter(chat =>
     chat.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleCreateGroup = (groupName, selectedMembers) => {
-    const newGroup = {
-      id: `g${Math.random().toString(36).substr(2, 9)}`,
-      name: groupName,
-      members: selectedMembers,
-      messages: [],
-    };
-    setGroupChats([...groupChats, newGroup]);
-    setShowCreateGroupModal(false);
+  const handleCreateGroup = async (groupName, selectedMembers) => {
+    try {
+
+      const newGroup = await axios.post(`${URL}/chat/create-group`, 
+        { groupName : groupName, memberIds : selectedMembers}, 
+        {headers: { "Authorization" : token }
+      })
+
+      setGroupChats([...groupChats, newGroup.data.data[0]]);
+      setShowCreateGroupModal(false);
+    } catch (error) {
+      console.error('Error fetching private chats:', error);
+    }
   };
 
   const handleSendMessage = (chatId, messageText) => {
@@ -71,21 +126,31 @@ const ChatApp = ({ handleLogout }) => {
   return (
     <Container fluid className="p-0">
       <Navbar handleLogout={handleLogout} />
-      <Row className="g-0"> 
+      <Row className="g-0">
         <Col xs={12} md={3} className="border-end">
           <Sidebar
             currentTab={currentTab}
             setCurrentTab={setCurrentTab}
-            privateChats={filteredPrivateChats}
+            privateChats={privateChats}
             groupChats={groupChats}
             setSelectedChat={setSelectedChat}
             setShowCreateGroupModal={setShowCreateGroupModal}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
+            getPrivateMessages={getPrivateMessages}
+            getGroupMessages={getGroupMessages}
           />
         </Col>
         <Col xs={12} md={9}>
-          <ChatArea chat={selectedChatData} onSendMessage={handleSendMessage} />
+          <ChatArea
+            currentTab={currentTab}
+            chat={selectedChatData}
+            privateMessages={privateMessages}
+            privateUserName={privateUserName}
+            groupMessages={groupMessages}
+            groupName={groupName}
+            onSendMessage={handleSendMessage}
+          />
         </Col>
       </Row>
       <CreateGroupModal

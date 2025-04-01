@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Form, InputGroup, Button } from 'react-bootstrap';
 
-const ChatArea = ({ chat, onSendMessage }) => {
+const ChatArea = ({ chat, onSendMessage, privateMessages, privateUserName, groupMessages, groupName, currentTab }) => {
   const [messageText, setMessageText] = useState('');
   const messagesEndRef = useRef(null); // Ref to scroll to the bottom
 
@@ -24,16 +24,31 @@ const ChatArea = ({ chat, onSendMessage }) => {
   return (
     <div className="d-flex flex-column" style={{ height: 'calc(100vh - 70px)' }}>
       {/* Fixed Chat Name Header */}
-      {chat && (
+      {currentTab === 'group' && groupMessages && (
         <div
-          className="bg-white text-center p-3 border-bottom"
+          className="bg-white p-3 border-bottom justify-content-between d-flex align-items-center"
           style={{
             position: 'sticky',
             top: 0,
             zIndex: 1, // Ensure it stays above scrolling content
           }}
         >
-          <h3 className="m-0">{chat.name}</h3>
+          <h3 className="m-0">{groupName}</h3>
+          <Button variant="outline-primary">Info</Button>
+        </div>
+      )}
+
+      {currentTab === 'private' && privateMessages && (
+        <div
+          className="bg-white p-3 border-bottom justify-content-between d-flex align-items-center"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 1, // Ensure it stays above scrolling content
+          }}
+        >
+          <h3 className="m-0">{privateUserName}</h3>
+          <Button variant="outline-primary">Info</Button>
         </div>
       )}
 
@@ -42,13 +57,13 @@ const ChatArea = ({ chat, onSendMessage }) => {
         className="flex-grow-1 p-3 overflow-auto"
         style={{ marginTop: chat ? '0' : 'auto' }} // Adjust margin when no chat is selected
       >
-        {chat ? (
+        {currentTab === 'private' && privateMessages ? (
           <div>
-            {chat.messages.map((msg, idx) => (
+            {privateMessages.map(({ id, content, senderName }) => (
               <div
-                key={idx}
+                key={id}
                 className={`d-flex mb-2 ${
-                  msg.sender === 'You' ? 'justify-content-end' : 'justify-content-start'
+                  senderName === 'You' ? 'justify-content-end' : 'justify-content-start'
                 }`}
               >
                 <div
@@ -56,10 +71,10 @@ const ChatArea = ({ chat, onSendMessage }) => {
                     maxWidth: '70%',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    backgroundColor: msg.sender === 'You' ? '#e3f2fd' : '#f5f5f5',
+                    backgroundColor: senderName === 'You' ? '#e3f2fd' : '#f5f5f5',
                   }}
                 >
-                  <strong>{msg.sender}:</strong> {msg.text}
+                  <strong>{senderName}:</strong> {content}
                 </div>
               </div>
             ))}
@@ -67,12 +82,34 @@ const ChatArea = ({ chat, onSendMessage }) => {
             <div ref={messagesEndRef} />
           </div>
         ) : (
-          <p className="text-center mt-5">Select a chat to start messaging</p>
+          <div>
+            {groupMessages.map(({ id, content, senderName }) => (
+              <div
+                key={id}
+                className={`d-flex mb-2 ${
+                  senderName === 'You' ? 'justify-content-end' : 'justify-content-start'
+                }`}
+              >
+                <div
+                  style={{
+                    maxWidth: '70%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: senderName === 'You' ? '#e3f2fd' : '#f5f5f5',
+                  }}
+                >
+                  <strong>{senderName}:</strong> {content}
+                </div>
+              </div>
+            ))}
+            {/* Dummy div to scroll to */}
+            <div ref={messagesEndRef} />
+          </div>
         )}
       </div>
 
       {/* Message Input */}
-      {chat && (
+      {(privateMessages || groupMessages) && (
         <Form onSubmit={handleSubmit} className="p-3 border-top">
           <InputGroup>
             <Form.Control

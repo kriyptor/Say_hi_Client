@@ -10,6 +10,9 @@ const Sidebar = ({
   setShowCreateGroupModal,
   searchTerm,
   setSearchTerm,
+  getPrivateMessages,
+  realGrpChat,
+  getGroupMessages,
 }) => (
   <div className="p-3">
     <Nav variant="pills" activeKey={currentTab} onSelect={setCurrentTab} className="flex-column">
@@ -28,8 +31,8 @@ const Sidebar = ({
               {privateChats.map(chat => (
                 <li
                   key={chat.id}
-                  onClick={() => setSelectedChat(chat.id)}
-                  className="p-2 hover:bg-light cursor-pointer"
+                  onClick={() => getPrivateMessages(chat.name, chat.id)}
+                  className="p-2 hover:bg-light cursor-pointer border border-success p-2 mb-2 border-opacity-75 mb-2 rounded"
                   style={{ cursor: 'pointer' }}
                 >
                   {chat.name}
@@ -39,7 +42,7 @@ const Sidebar = ({
           </div>
         )}
       </Nav.Item>
-
+        
       <Nav.Item>
         <Nav.Link eventKey="group">Group Chats</Nav.Link>
         {currentTab === 'group' && (
@@ -53,14 +56,14 @@ const Sidebar = ({
               Create Group
             </Button>
             <ul className="list-unstyled">
-              {groupChats.map(chat => (
+              {groupChats.map(({ id, name }) => (
                 <li
-                  key={chat.id}
-                  onClick={() => setSelectedChat(chat.id)}
+                  key={id}
+                  onClick={() => getGroupMessages(name, id)}
                   className="p-2 hover:bg-light cursor-pointer border border-success p-2 mb-2 border-opacity-75 mb-2 rounded"
                   style={{ cursor: 'pointer' }}
                 >
-                  {chat.name}
+                  {name}
                 </li>
               ))}
             </ul>
