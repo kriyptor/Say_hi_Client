@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
 import axios from 'axios';
 import { Container, Row, Col, Button } from 'react-bootstrap';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import ChatArea from './ChatArea';
 import CreateGroupModal from './CreateGroupModal';
+import ToastNotification from './ToastNotification';
 
-const ChatApp = ({ handleLogout, token }) => {
+const ChatApp = ({ handleLogout, token, setSocket, socket }) => {
   const URL = 'http://localhost:4000';
 
   const [currentTab, setCurrentTab] = useState('private');
@@ -14,21 +16,55 @@ const ChatApp = ({ handleLogout, token }) => {
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [availableUsers, setAvailableUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  //private chats
+  const [show, setShow] = useState(false);
+
+  //private chats states
   const [privateChats, setPrivateChats] = useState([]);
   const [privateMessages, setPrivateMessages] = useState([]);
   const [privateUserName, setPrivateUserName] = useState(``);
-  const [groupName, setGroupName] = useState(``)
+  const [privateUserID, setPrivateUserID] = useState(``);
+
+  //group chat states
+  const [groupName, setGroupName] = useState(``);
+  const [groupID, setGroupID] = useState(``)
   const [groupChats, setGroupChats] = useState([]);
   const [groupMessages, setGroupMessages] = useState([]);
+  
 
   useEffect(() => {
     const fetchChatsDetails = async () => {
       try {
+
+        //setting up websocket for chat
+        const currentSocket = io(URL, { auth : { token : token }});
+        setSocket(currentSocket);
+
+        //setting up connection listner
+        currentSocket.on('connect', () => {
+          console.log('Connected to socket server:', currentSocket.id);
+        });
+
+        currentSocket.on('messageSentConfirmation', (data) => {
+          console.log('Message confirmed:', data);
+        });
+
+        currentSocket.on('groupMessageSentConfirmation', (data) => {
+          console.log('Group Message confirmed:', data);
+        });
+
+        currentSocket.on('newMessage', (data) => {
+          console.log('New message received from newMessage:', data);
+          setPrivateMessages(prevMessages => [...prevMessages, data]);
+        });
+
+        currentSocket.on('newGroupMessage', (data) => {
+          console.log('New message received: newGroupMessage', data);
+          setGroupMessages(prevMessages => [...prevMessages, data]);
+        });
+
         const privateChat = await axios.get(`${URL}/chat/get-private-chat`, {
           headers: { "Authorization" : token }
         });
-        console.log('Private chats details:', privateChat.data.data)
         setPrivateChats(privateChat.data.data);
 
         const groupChat = await axios.get(`${URL}/chat/get-all-group`, {
@@ -47,7 +83,17 @@ const ChatApp = ({ handleLogout, token }) => {
     };
 
     fetchChatsDetails();
-  }, []);
+
+     // Cleanup function to remove listeners when component unmounts
+     return () => {
+      if (socket) {
+        socket.off('newMessage');
+        socket.off('newGroupMessage');
+        socket.disconnect();
+      }
+    };
+
+  }, [token, URL]);
 
 
   const getPrivateMessages = async (receiverUserName, receiverUserId) => {
@@ -57,6 +103,7 @@ const ChatApp = ({ handleLogout, token }) => {
         params: { receiverUser : receiverUserId },
         headers: { "Authorization" : token }
       });
+        setPrivateUserID(receiverUserId);
         setPrivateUserName(receiverUserName)
         setPrivateMessages(response.data.chatData);
     } catch (error) {
@@ -71,8 +118,14 @@ const ChatApp = ({ handleLogout, token }) => {
         params: { groupId },
         headers: { "Authorization" : token }
       });
+      setGroupID(groupId)
       setGroupName(groupName);
       setGroupMessages(response.data.data);
+
+      if (socket && socket.connected) {
+        socket.emit('joinGroup', groupId);
+      }
+
     } catch (error) {
       console.error('Error fetching private chats:', error);
     }
@@ -98,7 +151,7 @@ const ChatApp = ({ handleLogout, token }) => {
     }
   };
 
-  const handleSendMessage = (chatId, messageText) => {
+/*   const handleSendMessage = (chatId, messageText) => {
     if (!messageText.trim()) return;
     const updatedChats = currentTab === 'private' ? privateChats : groupChats;
     const setChats = currentTab === 'private' ? setPrivateChats : setGroupChats;
@@ -116,6 +169,51 @@ const ChatApp = ({ handleLogout, token }) => {
         updatedChat,
         ...updatedChats.slice(chatIndex + 1),
       ]);
+    }
+  }; */
+
+  const handleSendMessage = async (destinationId, messageText) => {
+    try {
+      if (!messageText.trim() || !destinationId ||!socket || !socket.connected) return;
+
+      if (currentTab === 'private') {
+        const tempMessage = {
+          id : `temp_private_${Date.now()}`, 
+          content : messageText, 
+          createdAt : Date.now().toLocaleString(),
+          senderName : `You`
+        }
+        setPrivateMessages(prevMessages => [...prevMessages, tempMessage]);
+
+        const payload = {
+          receiverId : destinationId,
+          content: messageText,
+          tempId: `temp_${Date.now()}`
+        }
+
+        socket.emit('sendMessage', payload);
+
+      } else {
+        const tempMessage = {
+          id : `temp_group_${Date.now()}`, 
+          content : messageText, 
+          createdAt : Date.now().toLocaleString(),
+          senderName : `You`
+        }
+        setGroupMessages(prevMessages => [...prevMessages, tempMessage]);
+
+        const payload = {
+          groupId : destinationId,
+          content: messageText,
+          tempId: `temp_${Date.now()}`
+        }
+
+        socket.emit('sendGroupMessage', payload);
+
+      }
+
+    } catch (error) {
+      console.error('Error fetching private chats:', error);
     }
   };
 
@@ -147,8 +245,10 @@ const ChatApp = ({ handleLogout, token }) => {
             chat={selectedChatData}
             privateMessages={privateMessages}
             privateUserName={privateUserName}
+            privateUserID={privateUserID}
             groupMessages={groupMessages}
             groupName={groupName}
+            groupID={groupID}
             onSendMessage={handleSendMessage}
           />
         </Col>
@@ -159,8 +259,8 @@ const ChatApp = ({ handleLogout, token }) => {
         availableUsers={availableUsers}
         onCreateGroup={handleCreateGroup}
       />
+      {/* <ToastNotification show={show} setShow={setShow} /> */}
     </Container>
   );
 };
-
 export default ChatApp;

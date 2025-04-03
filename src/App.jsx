@@ -8,7 +8,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [token, setToken] = useState(null);
-
+  const [socket, setSocket] = useState(null); // Store the socket instance
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -33,6 +33,10 @@ function App() {
       console.log(`clicked`)
       setToken(null);
       setIsAuthenticated(false);
+      if (socket) {
+        socket.disconnect();
+        console.log('Socket disconnected');
+      }
       localStorage.removeItem('token');
     } catch (error) {
       console.log('Logout error:', error); 
@@ -46,7 +50,7 @@ function App() {
         <Route
           path="/"
           element={
-            isAuthenticated ? <ChatApp handleLogout={handleLogout} token={token} /> : 
+            isAuthenticated ? <ChatApp handleLogout={handleLogout} token={token} setSocket={setSocket} socket={socket} /> : 
             <Auth 
             handleLogin={handleLogin} 
             />
